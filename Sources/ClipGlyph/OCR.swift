@@ -58,9 +58,9 @@ enum OCR {
     }
 
     /// Languages supported by the built-in, on-device model (no downloads).
-    static var supportedLanguages: [String] {
+    static let supportedLanguages: [String] = {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         return (try? request.supportedRecognitionLanguages()) ?? ["en-US"]
-    }
+    }()
 }

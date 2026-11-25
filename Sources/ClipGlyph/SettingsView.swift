@@ -6,7 +6,24 @@ import SwiftUI
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
 
+    /// Builds the window off-screen so the first open is instant.
+    func prepare() {
+        guard window == nil else { return }
+        makeWindow()
+        window?.contentView?.layoutSubtreeIfNeeded()
+    }
+
     func show() {
+        makeWindow()
+        if #available(macOS 14.0, *) {
+            NSApp.activate()
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        window?.makeKeyAndOrderFront(nil)
+    }
+
+    private func makeWindow() {
         if window == nil {
             let host = NSHostingController(rootView: SettingsView())
             host.sizingOptions = [.preferredContentSize]
@@ -19,12 +36,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             w.center()
             window = w
         }
-        if #available(macOS 14.0, *) {
-            NSApp.activate()
-        } else {
-            NSApp.activate(ignoringOtherApps: true)
-        }
-        window?.makeKeyAndOrderFront(nil)
     }
 
     func windowWillClose(_ notification: Notification) { ShortcutRecorder.shared.stop() }
@@ -85,6 +96,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollDisabled(true)
         .toggleStyle(.switch)
         .controlSize(.small)
         .frame(width: 360)
@@ -178,10 +190,18 @@ struct SettingsView: View {
     }
 }
 
-/// A row title with an ⓘ that shows details on hover.
+/// Which ⓘ popover is open (one at a time). Separate from AppState so opening one
+/// only re-renders the info labels, not the whole form.
+private final class InfoPopoverState: ObservableObject {
+    static let shared = InfoPopoverState()
+    @Published var openInfo: String?
+}
+
+/// A row title with an ⓘ: hover for a tooltip, click for a popover.
 private struct InfoLabel: View {
     let title: String
     let help: String
+    @ObservedObject private var state = InfoPopoverState.shared
 
     init(_ title: String, help: String) {
         self.title = title
@@ -191,10 +211,25 @@ private struct InfoLabel: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(title)
-            Image(systemName: "info.circle")
-                .foregroundStyle(.secondary)
-                .imageScale(.small)
+            Button {
+                state.openInfo = state.openInfo == title ? nil : title
+            } label: {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+                    .imageScale(.small)
+            }
+            .buttonStyle(.borderless)
+            .help(help)
+            .popover(isPresented: Binding(
+                get: { state.openInfo == title },
+                set: { if !$0 && state.openInfo == title { state.openInfo = nil } }
+            ), arrowEdge: .bottom) {
+                Text(help)
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 240, alignment: .leading)
+                    .padding(12)
+            }
         }
-        .help(help)
     }
 }

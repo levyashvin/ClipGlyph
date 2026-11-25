@@ -29,7 +29,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = Self.makeMenu()
         hotKey = HotKey { [weak self] in self?.runOCR() }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem?.button?.image = NSImage(systemSymbolName: "text.viewfinder", accessibilityDescription: "ClipGlyph")
+        statusItem?.autosaveName = "ClipGlyphStatusItem"   // macOS remembers where you ⌘-dragged it
+        statusItem?.button?.image = MenuBarIcon.image
+        statusItem?.button?.setAccessibilityLabel("ClipGlyph")
         applySettings()
         NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) {
             [weak self] _ in self?.applySettings()
@@ -48,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !Settings.hasLaunchedBefore || !AppState.shared.hotKeyRegistered {
             Settings.hasLaunchedBefore = true
             settingsWindow.show()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.settingsWindow.prepare() }
         }
     }
 
@@ -81,7 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(.separator())
         }
         let (key, mods) = Settings.shortcut.menuKeyEquivalent
-        let ocr = NSMenuItem(title: "Read Clipboard Image", action: #selector(menuOCR), keyEquivalent: key)
+        let ocr = NSMenuItem(title: "Read Clipboard", action: #selector(menuOCR), keyEquivalent: key)
         ocr.keyEquivalentModifierMask = mods
         ocr.target = self
         menu.addItem(ocr)

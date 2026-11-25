@@ -47,8 +47,19 @@ struct Shortcut: Equatable {
 
     private var keyName: String {
         if let s = Self.special[Int(keyCode)] { return s.label }
-        return Self.character(for: keyCode)?.uppercased() ?? "#\(keyCode)"
+        if let cached = Self.nameCache[keyCode] { return cached }
+        let name = Self.character(for: keyCode)?.uppercased() ?? "#\(keyCode)"
+        Self.nameCache[keyCode] = name
+        return name
     }
+
+    /// Key names per keyboard layout; cleared when the user switches layouts.
+    private static var nameCache: [UInt32: String] = {
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
+            object: nil, queue: .main) { _ in nameCache.removeAll() }
+        return [:]
+    }()
 
     private static let special: [Int: (label: String, menu: String)] = {
         func ch(_ c: Int) -> String { String(UnicodeScalar(UInt16(c)).map(Character.init) ?? " ") }

@@ -51,7 +51,7 @@ make install          # installs to ~/Applications and starts at login
 
 You can change the shortcut in Settings.
 
-The menu-bar icon (a magnifier over text) has **Read Clipboard Image**, **Settings…** and **Quit**.
+The menu-bar icon (a magnifier over text; ⌘-drag to move it) has **Read Clipboard**, **Settings…** and **Quit**.
 
 If you hide the icon, open Settings by launching ClipGlyph again:
 
@@ -73,7 +73,7 @@ If ClipGlyph crashes it restarts automatically. Quitting it on purpose keeps it 
 
 ## Settings
 
-Open Settings from the menu-bar icon. Hover over any ⓘ for details.
+Open Settings from the menu-bar icon. Hover over or click any ⓘ for details.
 
 | Setting | Default |
 | --- | --- |
