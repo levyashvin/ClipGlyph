@@ -5,6 +5,7 @@ import Carbon.HIToolbox
 final class HotKey {
     private let onPress: () -> Void
     private var ref: EventHotKeyRef?
+    private(set) var isRegistered = false
 
     init(onPress: @escaping () -> Void) {
         self.onPress = onPress
@@ -23,7 +24,8 @@ final class HotKey {
         let id = EventHotKeyID(signature: OSType(0x434C_4759) /* 'CLGY' */, id: 1)
         let mods = UInt32(controlKey | optionKey | cmdKey)
         let reg = RegisterEventHotKey(UInt32(kVK_ANSI_O), mods, id, GetApplicationEventTarget(), 0, &ref)
-        if reg == noErr {
+        isRegistered = reg == noErr
+        if isRegistered {
             log.info("Registered hotkey Control-Option-Command-O")
         } else {
             log.error("Failed to register hotkey Control-Option-Command-O: \(reg, privacy: .public)")

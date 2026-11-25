@@ -6,21 +6,39 @@ let log = Logger(subsystem: "io.github.levyashvin.clipglyph", category: "main")
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotKey: HotKey?
     private var statusItem: NSStatusItem?
+    private var hotKeyWarningItem: NSMenuItem?
     private let settingsWindow = SettingsWindowController()
     private var busy = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Only one copy: a second launch hands off to the running one (which opens Settings).
+        let me = NSRunningApplication.current
+        if let other = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .first(where: { $0 != me }) {
+            log.info("Already running (pid \(other.processIdentifier, privacy: .public)); exiting")
+            NSWorkspace.shared.openApplication(at: other.bundleURL ?? Bundle.main.bundleURL,
+                                               configuration: NSWorkspace.OpenConfiguration())
+            exit(0)
+        }
+
         Settings.registerDefaults()
+        Settings.sanitize()
         Notifier.setUp()
         NSApp.mainMenu = Self.makeMenu()
         hotKey = HotKey { [weak self] in self?.runOCR() }
+        AppState.shared.hotKeyRegistered = hotKey?.isRegistered ?? false
         setUpStatusItem()
         NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) {
             [weak self] _ in self?.statusItem?.isVisible = Settings.showMenuBarIcon
         }
+
+        if !Settings.hasLaunchedBefore || !AppState.shared.hotKeyRegistered {
+            Settings.hasLaunchedBefore = true
+            settingsWindow.show()
+        }
     }
 
-    /// Launching the app again (Spotlight, Finder, `open`) opens Settings.
+    /// Launching the app again (Finder, `open`, a second instance) opens Settings.
     /// This is the way back in when the menu bar icon is hidden.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         settingsWindow.show()
@@ -33,6 +51,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "text.viewfinder", accessibilityDescription: "ClipGlyph")
         let menu = NSMenu()
+        if !AppState.shared.hotKeyRegistered {
+            let warn = NSMenuItem(title: "Shortcut ⌃⌥⌘O isn't available", action: nil, keyEquivalent: "")
+            warn.isEnabled = false
+            menu.addItem(warn)
+            menu.addItem(.separator())
+        }
         let ocr = NSMenuItem(title: "Read Clipboard Image", action: #selector(menuOCR), keyEquivalent: "o")
         ocr.keyEquivalentModifierMask = [.control, .option, .command]
         ocr.target = self
@@ -56,16 +80,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !busy else { return }
         let pb = NSPasteboard.general
         let changeCount = pb.changeCount
-        guard let image = NSImage(pasteboard: pb),
-              let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+        guard let image = ClipboardImage.read(from: pb) else {
             log.info("Clipboard has no image")
-            Notifier.post("No image on the clipboard", body: "Copy a screenshot first, then press the shortcut.")
+            Notifier.post("No image on the clipboard", body: "Copy a screenshot first, then press ⌃⌥⌘O.")
             return
         }
         busy = true
         let options = OCR.Options.current
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = OCR.recognize(cg, options: options)
+            let result = autoreleasepool { OCR.recognize(image, options: options) }
             DispatchQueue.main.async { self?.finish(result, changeCount: changeCount) }
         }
     }
@@ -87,7 +110,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             pb.clearContents()
-            pb.setString(text, forType: .string)
+            guard pb.setString(text, forType: .string) else {
+                log.error("Failed to write text to the clipboard")
+                Notifier.post("Couldn't write to the clipboard", body: "Try again.")
+                return
+            }
             if case .codes = result {
                 Notifier.post("Copied QR/barcode contents", body: text)
             } else {
@@ -111,4 +138,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.addItem(fileItem)
         return main
     }
+}
+
+/// Runtime state shown in Settings.
+final class AppState: ObservableObject {
+    static let shared = AppState()
+    @Published var hotKeyRegistered = true
+    @Published var notificationsDenied = false
 }

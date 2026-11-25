@@ -5,6 +5,7 @@
   <key>Label</key><string>io.github.levyashvin.clipglyph</string>
   <key>ProgramArguments</key><array><string>@APP@/Contents/MacOS/ClipGlyph</string></array>
   <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><dict><key>Crashed</key><true/></dict>
   <key>ProcessType</key><string>Interactive</string>
 </dict>
 </plist>

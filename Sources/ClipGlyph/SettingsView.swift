@@ -39,10 +39,21 @@ struct SettingsView: View {
     @AppStorage(Settings.Key.detectCodes) private var detectCodes = false
     @AppStorage(Settings.Key.showMenuBarIcon) private var showMenuBarIcon = true
 
+    @ObservedObject private var state = AppState.shared
+
     private let supported = OCR.supportedLanguages
 
     var body: some View {
         Form {
+            if !state.hotKeyRegistered {
+                Section {
+                    Label("macOS wouldn't register ⌃⌥⌘O, so the shortcut isn't active. "
+                          + "Quit and reopen ClipGlyph to try again. "
+                          + "Read Clipboard Image in the menu bar icon still works.",
+                          systemImage: "exclamationmark.triangle")
+                }
+            }
+
             Section {
                 LabeledContent("Read clipboard image", value: "⌃⌥⌘O")
                 Toggle("Show menu bar icon", isOn: $showMenuBarIcon)
@@ -85,11 +96,19 @@ struct SettingsView: View {
                     get: { notify },
                     set: { on in
                         notify = on
-                        if on { Notifier.requestPermission() }
+                        if on { Notifier.requestPermission { _ in refreshNotificationStatus() } }
                     }
                 ))
             } header: {
                 Text("Notifications")
+            } footer: {
+                if notify && state.notificationsDenied {
+                    HStack {
+                        Text("Notifications are turned off for ClipGlyph in System Settings.")
+                        Button("Open System Settings") { Notifier.openSystemSettings() }
+                            .buttonStyle(.link)
+                    }
+                }
             }
 
             Section {
@@ -98,9 +117,17 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear(perform: refreshNotificationStatus)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshNotificationStatus()
+        }
         .toggleStyle(.switch)
         .frame(width: Self.width)
         .frame(minHeight: 300, idealHeight: Self.height)
+    }
+
+    private func refreshNotificationStatus() {
+        Notifier.checkDenied { AppState.shared.notificationsDenied = $0 }
     }
 
     private func binding(for code: String) -> Binding<Bool> {

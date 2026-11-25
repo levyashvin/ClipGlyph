@@ -8,6 +8,7 @@ enum Settings {
         static let languages = "languages"
         static let detectCodes = "detectCodes"
         static let showMenuBarIcon = "showMenuBarIcon"
+        static let hasLaunchedBefore = "hasLaunchedBefore"
     }
 
     static func registerDefaults() {
@@ -29,6 +30,18 @@ enum Settings {
     static var languages: [String] { decode(d.string(forKey: Key.languages) ?? "") }
     /// Falls back to automatic when no language is selected.
     static var automaticLanguage: Bool { d.bool(forKey: Key.automaticLanguage) || languages.isEmpty }
+
+    static var hasLaunchedBefore: Bool {
+        get { d.bool(forKey: Key.hasLaunchedBefore) }
+        set { d.set(newValue, forKey: Key.hasLaunchedBefore) }
+    }
+
+    /// Drops saved languages this macOS version no longer supports (Vision would reject the request).
+    static func sanitize() {
+        let supported = Set(OCR.supportedLanguages)
+        let kept = languages.filter(supported.contains)
+        if kept != languages { d.set(encode(kept), forKey: Key.languages) }
+    }
 
     static func decode(_ s: String) -> [String] { s.split(separator: ",").map(String.init) }
     static func encode(_ a: [String]) -> String { a.joined(separator: ",") }

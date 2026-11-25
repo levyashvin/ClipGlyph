@@ -11,7 +11,7 @@ It's built for managed and MDM-controlled Macs. You take screenshots with the ma
 ## Features
 
 - **No special permissions.** No Screen Recording, Accessibility, Input Monitoring or admin prompt.
-- **Hardened.** Built with the hardened runtime, with no entitlements and no network access.
+- **Robust.** One instance at a time, restarts after a crash, OCRs at full Retina resolution, works with image files copied in Finder, and tells you if the shortcut couldn't be registered or notifications are blocked. Built with the hardened runtime and makes no network connections.
 - **Fully on-device.** Uses Apple's Vision framework. Nothing is uploaded and no models are downloaded.
 - **Stays out of the way.** No Dock icon. A small menu-bar icon gives you Settings, and you can hide it.
 - **Won't overwrite your clipboard by mistake.** If there's no text, or you copy something else while OCR is running, your clipboard is left alone.
@@ -57,6 +57,17 @@ If you hide the icon, open Settings by launching ClipGlyph again:
 open "$(brew --prefix)/opt/clipglyph/ClipGlyph.app"   # Homebrew
 open ~/Applications/ClipGlyph.app                     # from source
 ```
+
+## Start and stop
+
+| | |
+| --- | --- |
+| Start now and at every login | `brew services start clipglyph` |
+| Stop until next login | Menu bar icon → **Quit ClipGlyph** |
+| Stop for good | `brew services stop clipglyph` |
+| Start again after quitting | `brew services restart clipglyph` |
+
+If ClipGlyph crashes it restarts automatically. Quitting it on purpose keeps it stopped.
 
 ## Settings
 
