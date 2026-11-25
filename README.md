@@ -11,6 +11,7 @@ It's built for managed and MDM-controlled Macs. You take screenshots with the ma
 ## Features
 
 - **No special permissions.** No Screen Recording, Accessibility, Input Monitoring or admin prompt.
+- **Hardened.** Built with the hardened runtime, with no entitlements and no network access.
 - **Fully on-device.** Uses Apple's Vision framework. Nothing is uploaded and no models are downloaded.
 - **Stays out of the way.** No Dock icon. A small menu-bar icon gives you Settings, and you can hide it.
 - **Won't overwrite your clipboard by mistake.** If there's no text, or you copy something else while OCR is running, your clipboard is left alone.
@@ -26,6 +27,8 @@ brew services start clipglyph     # start now and at every login
 ```
 
 This is a formula rather than a cask on purpose. Homebrew builds ClipGlyph from source on your Mac, so Gatekeeper never blocks it and you never need to click **Open Anyway**, which often needs an admin password on managed Macs.
+
+There's no DMG on purpose. A downloaded, unsigned app gets quarantined by Gatekeeper, and on managed Macs that's exactly where an admin password comes in. Building from source avoids that.
 
 ### From source
 

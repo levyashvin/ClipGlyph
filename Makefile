@@ -14,7 +14,7 @@ app: build
 	mkdir -p $(APP)/Contents/MacOS
 	cp Resources/Info.plist $(APP)/Contents/Info.plist
 	cp $(BUILD) $(APP)/Contents/MacOS/ClipGlyph
-	codesign --force -s - --identifier $(LABEL) $(APP)
+	codesign --force --options runtime -s - --identifier $(LABEL) $(APP)
 
 # Manual install (without Homebrew): copies to ~/Applications and starts at login.
 install: app

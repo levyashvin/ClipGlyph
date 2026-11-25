@@ -1,24 +1,37 @@
 import AppKit
 import SwiftUI
 
+/// Settings window. Uses only standard AppKit/SwiftUI controls, so on macOS 26 it
+/// automatically picks up Liquid Glass styling; on older macOS it looks native too.
 final class SettingsWindowController {
     private var window: NSWindow?
 
     func show() {
         if window == nil {
-            let w = NSWindow(contentViewController: NSHostingController(rootView: SettingsView()))
+            let host = NSHostingController(rootView: SettingsView())
+            let w = NSWindow(contentViewController: host)
             w.title = "ClipGlyph Settings"
-            w.styleMask = [.titled, .closable]
+            w.styleMask = [.titled, .closable, .fullSizeContentView]
+            w.titlebarAppearsTransparent = true
+            w.setContentSize(NSSize(width: SettingsView.width, height: SettingsView.height))
             w.isReleasedWhenClosed = false
-            w.center()
+            w.setFrameAutosaveName("ClipGlyphSettings")
+            if !w.setFrameUsingName("ClipGlyphSettings") { w.center() }
             window = w
         }
-        NSApp.activate(ignoringOtherApps: true)
+        if #available(macOS 14.0, *) {
+            NSApp.activate()
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+        }
         window?.makeKeyAndOrderFront(nil)
     }
 }
 
 struct SettingsView: View {
+    static let width: CGFloat = 460
+    static let height: CGFloat = 560
+
     @AppStorage(Settings.Key.notify) private var notify = false
     @AppStorage(Settings.Key.keepLineBreaks) private var keepLineBreaks = true
     @AppStorage(Settings.Key.automaticLanguage) private var automaticLanguage = true
@@ -33,55 +46,61 @@ struct SettingsView: View {
             Section {
                 LabeledContent("Read clipboard image", value: "⌃⌥⌘O")
                 Toggle("Show menu bar icon", isOn: $showMenuBarIcon)
+            } header: {
+                Text("General")
+            } footer: {
                 if !showMenuBarIcon {
                     Text("To reopen Settings, launch ClipGlyph again.")
-                        .font(.caption).foregroundStyle(.secondary)
                 }
-            } header: { Text("General") }
+            }
 
             Section {
                 Picker("Line breaks", selection: $keepLineBreaks) {
-                    Text("Keep line breaks").tag(true)
+                    Text("Keep").tag(true)
                     Text("Join into one paragraph").tag(false)
                 }
                 Toggle("Read QR codes and barcodes", isOn: $detectCodes)
+            } header: {
+                Text("Output")
+            } footer: {
                 Text("When a code is found, its contents are copied instead of the text.")
-                    .font(.caption).foregroundStyle(.secondary)
-            } header: { Text("Output") }
+            }
 
             Section {
-                Toggle("Detect language automatically", isOn: $automaticLanguage)
+                Toggle("Detect automatically", isOn: $automaticLanguage)
                 if !automaticLanguage {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(supported, id: \.self) { code in
-                                Toggle(Self.name(code), isOn: binding(for: code))
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    ForEach(supported, id: \.self) { code in
+                        Toggle(Self.name(code), isOn: binding(for: code))
+                            .toggleStyle(.checkbox)
                     }
-                    .frame(height: 160)
                 }
+            } header: {
+                Text("Languages")
+            } footer: {
                 Text("All languages are built into macOS. Nothing is downloaded.")
-                    .font(.caption).foregroundStyle(.secondary)
-            } header: { Text("Languages") }
+            }
 
             Section {
-                Toggle("Show a notification after each run", isOn: $notify)
-                    .onChange(of: notify) { on in if on { Notifier.requestPermission() } }
-            } header: { Text("Notifications") }
+                Toggle("Show a notification after each run", isOn: Binding(
+                    get: { notify },
+                    set: { on in
+                        notify = on
+                        if on { Notifier.requestPermission() }
+                    }
+                ))
+            } header: {
+                Text("Notifications")
+            }
 
             Section {
-                HStack {
-                    Text("Version \(Self.version)").foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Quit ClipGlyph") { NSApp.terminate(nil) }
-                }
+                LabeledContent("Version", value: Self.version)
+                Button("Quit ClipGlyph", role: .destructive) { NSApp.terminate(nil) }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .fixedSize(horizontal: false, vertical: true)
+        .toggleStyle(.switch)
+        .frame(width: Self.width)
+        .frame(minHeight: 300, idealHeight: Self.height)
     }
 
     private func binding(for code: String) -> Binding<Bool> {
