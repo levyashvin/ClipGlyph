@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import os
 
 let log = Logger(subsystem: "io.github.levyashvin.clipglyph", category: "main")
@@ -6,7 +7,8 @@ let log = Logger(subsystem: "io.github.levyashvin.clipglyph", category: "main")
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotKey: HotKey?
     private var statusItem: NSStatusItem?
-    private var hotKeyWarningItem: NSMenuItem?
+    private var registeredShortcut: Shortcut?
+    private var recordingSub: AnyCancellable?
     private let settingsWindow = SettingsWindowController()
     private var busy = false
 
@@ -26,10 +28,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Notifier.setUp()
         NSApp.mainMenu = Self.makeMenu()
         hotKey = HotKey { [weak self] in self?.runOCR() }
-        AppState.shared.hotKeyRegistered = hotKey?.isRegistered ?? false
-        setUpStatusItem()
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem?.button?.image = NSImage(systemSymbolName: "text.viewfinder", accessibilityDescription: "ClipGlyph")
+        applySettings()
         NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) {
-            [weak self] _ in self?.statusItem?.isVisible = Settings.showMenuBarIcon
+            [weak self] _ in self?.applySettings()
+        }
+        // Pause the global hotkey while recording a new one, so the current combo can be re-recorded.
+        recordingSub = AppState.shared.$isRecording.dropFirst().removeDuplicates().sink { [weak self] recording in
+            guard let self else { return }
+            if recording {
+                self.hotKey?.register(nil)
+                self.registeredShortcut = nil
+            } else {
+                DispatchQueue.main.async { self.applySettings() }
+            }
         }
 
         if !Settings.hasLaunchedBefore || !AppState.shared.hotKeyRegistered {
@@ -45,20 +58,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    /// Re-applies hotkey, menu and icon visibility from Settings. Cheap and idempotent.
+    private func applySettings() {
+        let shortcut = Settings.shortcut
+        if !AppState.shared.isRecording && shortcut != registeredShortcut {
+            hotKey?.register(shortcut)
+            registeredShortcut = shortcut
+            AppState.shared.hotKeyRegistered = hotKey?.isRegistered ?? false
+            statusItem?.menu = makeStatusMenu()
+        }
+        statusItem?.isVisible = Settings.showMenuBarIcon
+    }
+
     // MARK: Menu bar icon
 
-    private func setUpStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "text.viewfinder", accessibilityDescription: "ClipGlyph")
+    private func makeStatusMenu() -> NSMenu {
         let menu = NSMenu()
         if !AppState.shared.hotKeyRegistered {
-            let warn = NSMenuItem(title: "Shortcut ⌃⌥⌘O isn't available", action: nil, keyEquivalent: "")
+            let warn = NSMenuItem(title: "Shortcut \(Settings.shortcut.displayString) isn't available", action: nil, keyEquivalent: "")
             warn.isEnabled = false
             menu.addItem(warn)
             menu.addItem(.separator())
         }
-        let ocr = NSMenuItem(title: "Read Clipboard Image", action: #selector(menuOCR), keyEquivalent: "o")
-        ocr.keyEquivalentModifierMask = [.control, .option, .command]
+        let (key, mods) = Settings.shortcut.menuKeyEquivalent
+        let ocr = NSMenuItem(title: "Read Clipboard Image", action: #selector(menuOCR), keyEquivalent: key)
+        ocr.keyEquivalentModifierMask = mods
         ocr.target = self
         menu.addItem(ocr)
         menu.addItem(.separator())
@@ -66,9 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.target = self
         menu.addItem(settings)
         menu.addItem(withTitle: "Quit ClipGlyph", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        item.menu = menu
-        item.isVisible = Settings.showMenuBarIcon
-        statusItem = item
+        return menu
     }
 
     @objc private func menuOCR() { runOCR() }
@@ -82,7 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let changeCount = pb.changeCount
         guard let image = ClipboardImage.read(from: pb) else {
             log.info("Clipboard has no image")
-            Notifier.post("No image on the clipboard", body: "Copy a screenshot first, then press ⌃⌥⌘O.")
+            Notifier.post("No image on the clipboard", body: "Copy a screenshot first, then press \(Settings.shortcut.displayString).")
             return
         }
         busy = true
@@ -145,4 +167,5 @@ final class AppState: ObservableObject {
     static let shared = AppState()
     @Published var hotKeyRegistered = true
     @Published var notificationsDenied = false
+    @Published var isRecording = false
 }

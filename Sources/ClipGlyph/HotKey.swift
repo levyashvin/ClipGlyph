@@ -1,7 +1,6 @@
 import Carbon.HIToolbox
 
-/// Global hotkey (Control-Option-Command-O) via Carbon.
-/// No Accessibility or Input Monitoring permission needed.
+/// The global OCR hotkey, via Carbon. No Accessibility or Input Monitoring permission needed.
 final class HotKey {
     private let onPress: () -> Void
     private var ref: EventHotKeyRef?
@@ -9,7 +8,6 @@ final class HotKey {
 
     init(onPress: @escaping () -> Void) {
         self.onPress = onPress
-
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let status = InstallEventHandler(GetApplicationEventTarget(), { _, _, userData in
             guard let userData else { return noErr }
@@ -17,18 +15,24 @@ final class HotKey {
             DispatchQueue.main.async { me.onPress() }
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
-        guard status == noErr else {
+        if status != noErr {
             log.error("InstallEventHandler failed: \(status, privacy: .public)")
-            return
         }
+    }
+
+    /// Replaces any existing registration. Pass nil to unregister.
+    func register(_ shortcut: Shortcut?) {
+        if let ref { UnregisterEventHotKey(ref) }
+        ref = nil
+        isRegistered = false
+        guard let shortcut else { return }
         let id = EventHotKeyID(signature: OSType(0x434C_4759) /* 'CLGY' */, id: 1)
-        let mods = UInt32(controlKey | optionKey | cmdKey)
-        let reg = RegisterEventHotKey(UInt32(kVK_ANSI_O), mods, id, GetApplicationEventTarget(), 0, &ref)
-        isRegistered = reg == noErr
+        let status = RegisterEventHotKey(shortcut.keyCode, shortcut.modifiers, id, GetApplicationEventTarget(), 0, &ref)
+        isRegistered = status == noErr
         if isRegistered {
-            log.info("Registered hotkey Control-Option-Command-O")
+            log.info("Registered hotkey \(shortcut.displayString, privacy: .public)")
         } else {
-            log.error("Failed to register hotkey Control-Option-Command-O: \(reg, privacy: .public)")
+            log.error("Failed to register hotkey \(shortcut.displayString, privacy: .public): \(status, privacy: .public)")
         }
     }
 }

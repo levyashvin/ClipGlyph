@@ -9,6 +9,8 @@ enum Settings {
         static let detectCodes = "detectCodes"
         static let showMenuBarIcon = "showMenuBarIcon"
         static let hasLaunchedBefore = "hasLaunchedBefore"
+        static let shortcutKeyCode = "shortcutKeyCode"
+        static let shortcutModifiers = "shortcutModifiers"
     }
 
     static func registerDefaults() {
@@ -19,6 +21,8 @@ enum Settings {
             Key.languages: "en-US",
             Key.detectCodes: false,
             Key.showMenuBarIcon: true,
+            Key.shortcutKeyCode: Int(Shortcut.default.keyCode),
+            Key.shortcutModifiers: Int(Shortcut.default.modifiers),
         ])
     }
 
@@ -30,6 +34,15 @@ enum Settings {
     static var languages: [String] { decode(d.string(forKey: Key.languages) ?? "") }
     /// Falls back to automatic when no language is selected.
     static var automaticLanguage: Bool { d.bool(forKey: Key.automaticLanguage) || languages.isEmpty }
+
+    static var shortcut: Shortcut {
+        get { Shortcut(keyCode: UInt32(d.integer(forKey: Key.shortcutKeyCode)),
+                       modifiers: UInt32(d.integer(forKey: Key.shortcutModifiers))) }
+        set {
+            d.set(Int(newValue.keyCode), forKey: Key.shortcutKeyCode)
+            d.set(Int(newValue.modifiers), forKey: Key.shortcutModifiers)
+        }
+    }
 
     static var hasLaunchedBefore: Bool {
         get { d.bool(forKey: Key.hasLaunchedBefore) }

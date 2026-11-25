@@ -49,6 +49,8 @@ make install          # installs to ~/Applications and starts at login
 2. Press **⌃⌥⌘O**.
 3. Paste.
 
+You can change the shortcut in Settings.
+
 The menu-bar icon (a magnifier over text) has **Read Clipboard Image**, **Settings…** and **Quit**.
 
 If you hide the icon, open Settings by launching ClipGlyph again:
@@ -71,13 +73,16 @@ If ClipGlyph crashes it restarts automatically. Quitting it on purpose keeps it 
 
 ## Settings
 
+Open Settings from the menu-bar icon. Hover over any ⓘ for details.
+
 | Setting | Default |
 | --- | --- |
-| Show menu bar icon | On |
-| Line breaks: keep / join into one paragraph | Keep |
-| Read QR codes & barcodes (the code's contents are copied instead of the text) | Off |
-| Language: automatic, or choose specific languages | Automatic |
-| Notification after each run (copied / no image / no text / clipboard changed) | Off |
+| Shortcut: click and type a new combination (needs ⌘, ⌥ or ⌃) | ⌃⌥⌘O |
+| Menu bar icon | On |
+| Notifications: what happened after each run | Off |
+| Keep line breaks: off joins lines into one paragraph | On |
+| Read QR codes & barcodes: the code's contents are copied instead of the text | Off |
+| Detect language: off lets you pick from ~30 languages built into macOS | On |
 
 Turning on notifications triggers macOS's standard "Allow notifications" prompt. No admin is needed.
 
