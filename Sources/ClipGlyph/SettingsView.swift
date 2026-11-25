@@ -24,6 +24,7 @@ struct SettingsView: View {
     @AppStorage(Settings.Key.automaticLanguage) private var automaticLanguage = true
     @AppStorage(Settings.Key.languages) private var languages = "en-US"
     @AppStorage(Settings.Key.detectCodes) private var detectCodes = false
+    @AppStorage(Settings.Key.showMenuBarIcon) private var showMenuBarIcon = true
 
     private let supported = OCR.supportedLanguages
 
@@ -31,8 +32,12 @@ struct SettingsView: View {
         Form {
             Section {
                 LabeledContent("Read clipboard image", value: "⌃⌥⌘O")
-                LabeledContent("Open these settings", value: "⌃⌥⌘,")
-            } header: { Text("Shortcuts") }
+                Toggle("Show menu bar icon", isOn: $showMenuBarIcon)
+                if !showMenuBarIcon {
+                    Text("To reopen Settings, launch ClipGlyph again.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            } header: { Text("General") }
 
             Section {
                 Picker("Line breaks", selection: $keepLineBreaks) {

@@ -4,7 +4,8 @@ import os
 let log = Logger(subsystem: "io.github.levyashvin.clipglyph", category: "main")
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var hotKeys: HotKeys?
+    private var hotKey: HotKey?
+    private var statusItem: NSStatusItem?
     private let settingsWindow = SettingsWindowController()
     private var busy = false
 
@@ -12,17 +13,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Settings.registerDefaults()
         Notifier.setUp()
         NSApp.mainMenu = Self.makeMenu()
-        hotKeys = HotKeys(
-            onOCR: { [weak self] in self?.runOCR() },
-            onSettings: { [weak self] in self?.settingsWindow.show() }
-        )
+        hotKey = HotKey { [weak self] in self?.runOCR() }
+        setUpStatusItem()
+        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) {
+            [weak self] _ in self?.statusItem?.isVisible = Settings.showMenuBarIcon
+        }
     }
 
     /// Launching the app again (Spotlight, Finder, `open`) opens Settings.
+    /// This is the way back in when the menu bar icon is hidden.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         settingsWindow.show()
         return false
     }
+
+    // MARK: Menu bar icon
+
+    private func setUpStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.image = NSImage(systemSymbolName: "text.viewfinder", accessibilityDescription: "ClipGlyph")
+        let menu = NSMenu()
+        let ocr = NSMenuItem(title: "Read Clipboard Image", action: #selector(menuOCR), keyEquivalent: "o")
+        ocr.keyEquivalentModifierMask = [.control, .option, .command]
+        ocr.target = self
+        menu.addItem(ocr)
+        menu.addItem(.separator())
+        let settings = NSMenuItem(title: "Settings…", action: #selector(menuSettings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+        menu.addItem(withTitle: "Quit ClipGlyph", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        item.menu = menu
+        item.isVisible = Settings.showMenuBarIcon
+        statusItem = item
+    }
+
+    @objc private func menuOCR() { runOCR() }
+    @objc private func menuSettings() { settingsWindow.show() }
 
     // MARK: OCR flow
 
